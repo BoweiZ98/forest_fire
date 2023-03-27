@@ -1,0 +1,92 @@
+---
+title: "Linear Regression Model"
+author: "Bowei Zhang"
+date: "2023-03-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(LANG = "en")
+library(alr4)
+library(tidyverse)
+library(corrgram)
+library(Metrics)
+library(GGally)
+source("data_preprocessing.R")
+```
+
+# Data Wrangling 
+```{r}
+# See distribution
+hist(df$area)
+```
+```{r}
+# Distribution without area = 0.1
+hist(df[df$area != 0.1,]$area, breaks = 20)
+```
+### update 'df'
+```{r}
+df <- df %>%
+  dplyr::select(-area_size) %>%
+  filter(area != 0.1) %>%
+  mutate(log.area = log(area))
+head(df)
+hist(df$log.area)
+```
+# Data Analysis
+
+## variable selection
+```{r}
+step(lm(log.area ~ 1, data = df %>% dplyr::select(-area)), 
+     ~ X + Y + FFMC + DMC + DC + ISI + temp + RH + wind, direction="both", trace = 0)
+```
+```{r}
+m1 = lm(formula = log.area ~ Y + ISI, data = df)
+summary(m1)
+```
+```{r}
+par(mfrow = c(2,2))
+plot(m1)
+```
+Adjusted R-square is too low.
+
+## PCA
+```{r, echo = FALSE}
+# change categorical variables back to continuous variables
+df1.cont <- df
+df1.cont$X <- as.numeric(df1.cont$X)
+df1.cont$Y <- as.numeric(df1.cont$Y)
+df1.cont$month <- as.numeric(df1.cont$month)
+df1.cont$day <- as.numeric(df1.cont$day)
+# PCA including response
+# cannot contain categorical variables
+full.pca <- prcomp(df1.cont %>% select(-X, -month, -day), center = TRUE, scale. = TRUE) 
+summary(full.pca)
+round(full.pca$rotation,3)
+```
+## During Summer
+```{r, eval = TRUE, echo = FALSE, out.width="50%"}
+# Focus on data in the summer
+df_summer <- df %>%
+  filter(month %in% c('jun', 'jul', 'aug', 'sep', 'oct'))
+plot(log.area ~ month, data = df_summer)
+# change the month back to continuous variable
+df_summer$month <- as.numeric(df_summer$month)
+```
+```{r, eval = TRUE, echo= FALSE}
+# Polynomial  
+m.summer1 <- lm(log.area ~ month, data = df_summer)
+summary(m.summer1)
+m.summer2 <- lm(log.area ~ poly(month,2), data = df_summer)
+summary(m.summer2)
+# Diagnostics
+par(mfrow = c(2,2))
+plot(m.summer1)
+```
+
+# Conclusion 
+* According to our results, the area burned from forest fires can not be predicted using linear regression model from the variables that we havein the dataset.
+* Other variables - such as elevation, levels of human activity - may be necessary to predict area burned
+* Other statistical reports have had similar diffuculties predicting area burned.[(source)](https://www.kaggle.com/code/psvishnu/forestfire-impact-prediction-stats-and-ml/notebook)
+* Some suggest that neural network and other Tree based models could give a better result.
