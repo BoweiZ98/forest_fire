@@ -73,9 +73,9 @@ mod.fit.full2 <- logistf(formula = area_size ~ FFMC + DMC + DC + ISI,
 backward(mod.fit.full2, slstay = 0.20)
 ```
 ```{r}
-mod.fit.2 <- logistf(formula = area_size ~ DC, data = df, 
-                     pl = FALSE, 
-                     family = binomial)
+mod.fit.2 <- glm(formula = area_size ~ DC, 
+                 data = df,
+                 family = binomial)
 summary(mod.fit.2)
 ```
 
@@ -96,13 +96,44 @@ ggplot() +
   geom_line(data = new.df,
             aes(x = DC,
                 y = fitted,
-                group = 1)) +
+                group = 1),
+            col = 'blue') +
   geom_jitter(data = df,
              aes(x = DC,
                  y = area_size),
              height = 0.05,
              width = 0.05,
              alpha = 0.5) +
+  geom_smooth(data = df,
+              aes(x = DC,
+                  y = area_size),
+              col = 'red',
+              se = FALSE) +
   theme_bw()
+```
+# Diagnostic
+```{r}
+# aggregate data
+ag.df <- aggregate(area_size ~ DC, data = df, FUN = sum)
+ag.df <- cbind(ag.df, 
+               aggregate(area ~ DC,
+                         data = df,
+                         FUN = length))
+names(ag.df)[ncol(ag.df)] <- 'tot'
+ag.df <- ag.df[,!duplicated(names(ag.df))]
+
+# fit aggregate model
+ag.mod.fit <- glm(area_size/tot ~ DC,
+                  data = ag.df,
+                  family = binomial,
+                  weight = tot)
+
+# plot diagnostics 
+par(mfrow = c(2,2))
+plot(ag.mod.fit)
+```
+
+```{r}
+generalhoslem::logitgof(df$area_size, mod.fit.2$fitted.values)
 ```
 
