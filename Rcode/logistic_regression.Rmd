@@ -72,3 +72,6 @@ ggsave("../results/fitted_logistic_model.png", fig1, width = 20, height = 12, dp
 generalhoslem::logitgof(df$area_size, mod.fit$predict)
 ```
 The Hosmer-Lemeshow test has a p-value of 0.67 which fails to reject the null; hence, the model is a good fit.
+
+
+
