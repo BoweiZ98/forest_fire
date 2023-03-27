@@ -1,0 +1,108 @@
+---
+title: "Forest_Fire_logistic_regression"
+author: "Bowei Zhang"
+date: "2023-03-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(LANG = "en")
+library(tidyverse)
+library(binom)
+library(car)
+library(mcprofile)
+library(logistf)
+library(generalhoslem)
+```
+
+# Data Import and Preprocessing
+
+## import data
+```{r}
+df_raw = read_csv('forest_fire.csv')
+head(df_raw)
+```
+## preprocess
+### month and day
+```{r}
+months <- c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+days <- c("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+df <- df_raw %>%
+  mutate(month = case_when(
+    month %in% months ~ match(month, months)
+  )) %>%
+  mutate(day = case_when(
+    day %in% days ~ match(day, days)
+  ))
+
+df$month <- factor(df$month,
+                   levels = 1:12,
+                   labels = months)
+df$day <- factor(df$day,
+                 levels = 1:7,
+                 labels = days)
+```
+
+```{r}
+df <- df %>% 
+  mutate(area_size = case_when(
+    area == 0.1 ~ 0,
+    TRUE ~ 1
+  ))
+```
+
+# model fitting
+```{r}
+mod.fit.full <- logistf(area_size ~ X + Y + month + day + temp + RH + wind + rain,
+               data = df,
+               family = binomial)
+backward(mod.fit.full, slstay = 0.20)
+```
+```{r}
+mod.fit <- logistf(formula = area_size ~ X + month + temp, 
+                   data = df, 
+                   family = binomial)
+summary(mod.fit)
+```
+```{r}
+mod.fit.full2 <- logistf(formula = area_size ~ FFMC + DMC + DC + ISI, 
+                   data = df, 
+                   family = binomial)
+backward(mod.fit.full2, slstay = 0.20)
+```
+```{r}
+mod.fit.2 <- logistf(formula = area_size ~ DC, data = df, 
+                     pl = FALSE, 
+                     family = binomial)
+summary(mod.fit.2)
+```
+
+# Visualization
+```{r}
+# Create fitted df
+new.df <- data.frame(
+  DC = with(df,
+            seq(min(DC),
+                max(DC),
+                by = 0.1),
+            )
+)
+new.df$fitted <- predict(mod.fit.2, newdata = new.df, type = "response")
+
+# ggplot2
+ggplot() +
+  geom_line(data = new.df,
+            aes(x = DC,
+                y = fitted,
+                group = 1)) +
+  geom_jitter(data = df,
+             aes(x = DC,
+                 y = area_size),
+             height = 0.05,
+             width = 0.05,
+             alpha = 0.5) +
+  theme_bw()
+```
+
