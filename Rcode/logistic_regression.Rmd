@@ -1,0 +1,73 @@
+---
+title: "Forest_Fire_logistic_regression"
+author: "Bowei Zhang"
+date: "2023-03-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(LANG = "en")
+library(tidyverse)
+library(binom)
+library(car)
+library(mcprofile)
+library(logistf)
+library(generalhoslem)
+source("data_preprocessing.R")
+```
+
+```{r}
+# delete 'area' column
+df <- df %>%
+  dplyr::select(-area)
+```
+
+
+# model fitting
+## Full Model Backward Elimination
+```{r}
+mod.fit.full <- logistf(area_size ~ X + Y + month + day + FFMC + DMC + DC + ISI + temp + RH + wind + rain,
+               data = df,
+               family = binomial)
+backward(mod.fit.full, slstay = 0.20)
+```
+
+```{r}
+mod.fit <- logistf(area_size ~ X + Y + month + FFMC,
+               data = df,
+               family = binomial)
+summary(mod.fit)
+```
+
+# Visualization
+```{r}
+# Create a new dataset with predicted values
+pred_probs <- with(
+  df,
+  expand.grid(
+    X = unique(X),
+    Y = unique(Y),
+    month = unique(month),
+    FFMC = seq(min(FFMC), max(FFMC), length.out = 100)
+  )
+)
+pred_probs$probs <- predict(mod.fit, newdata = pred_probs, type = "response")
+
+# ggplot2
+fig1 <- ggplot(pred_probs, aes(x = FFMC, y = probs, col = month)) +
+  geom_line() +
+  facet_grid(Y ~ X) +
+  theme_bw()+
+  scale_color_viridis_d()
+fig1
+```
+```{r}
+ggsave("../results/fitted_logistic_model.png", fig1, width = 20, height = 12, dpi = 320)
+```
+
+```{r}
+# Hosmer Lemeshow test
+generalhoslem::logitgof(df$area_size, mod.fit$predict)
+```
+The Hosmer-Lemeshow test has a p-value of 0.67 which fails to reject the null; hence, the model is a good fit.
